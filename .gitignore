@@ -1,0 +1,42 @@
+# 环境变量
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 数据目录（不提交用户数据）
+uploads/*
+results/*
+temp/*
+!uploads/.gitkeep
+!results/.gitkeep
+!temp/.gitkeep
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 日志
+*.log
+logs/
