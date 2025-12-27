@@ -58,9 +58,13 @@ def midi_to_musicxml(midi_file: Path, task_id: str) -> Path:
     # 这对于生成可读的乐谱非常重要
     #
     # quarterLengthDivisors: 定义量化精度
-    # [4, 3] 表示支持四分音符的 1/4（十六分音符）和三连音
+    # [8, 6, 4, 3] 表示支持：
+    # - 8: 三十二分音符 (1/8 of quarter note)
+    # - 6: 六连音 (sextuplets)
+    # - 4: 十六分音符 (1/4 of quarter note)
+    # - 3: 三连音 (triplets)
     score.quantize(
-        quarterLengthDivisors=[4, 3],
+        quarterLengthDivisors=[8, 6, 4, 3],
         processOffsets=True,   # 量化音符起始位置
         processDurations=True  # 量化音符时值
     )
@@ -73,8 +77,12 @@ def midi_to_musicxml(midi_file: Path, task_id: str) -> Path:
             logger.info(f"检测到调号: {analyzed_key}")
             # 如果乐谱没有调号，添加分析结果
             for part in score.parts:
-                if not part.getElementsByClass(key.Key):
-                    part.insert(0, analyzed_key)
+                # 正确检查是否已存在调号：getElementsByClass 返回 Stream，需要检查长度
+                existing_keys = list(part.recurse().getElementsByClass(key.Key))
+                if not existing_keys:
+                    # 创建调号的副本以避免重复引用问题
+                    new_key = key.Key(analyzed_key.tonic, analyzed_key.mode)
+                    part.insert(0, new_key)
     except Exception as e:
         logger.warning(f"调号分析失败: {e}")
 
@@ -88,11 +96,19 @@ def midi_to_musicxml(midi_file: Path, task_id: str) -> Path:
 
     # 5. 添加乐器信息（如果缺失）
     for part in score.parts:
-
         # 移除所有复杂的乐器定义
-        flat_part = part.flatten()
-        for el in flat_part.getElementsByClass('Instrument'):
-            part.remove(el, recurse=True)
+        # 使用 recurse() 遍历所有层级，收集要删除的元素
+        instruments_to_remove = list(part.recurse().getElementsByClass(instrument.Instrument))
+        for inst in instruments_to_remove:
+            # 安全地从其所在容器中移除
+            try:
+                inst.activeSite.remove(inst)
+            except Exception:
+                # 如果移除失败，尝试从 part 递归移除
+                try:
+                    part.remove(inst, recurse=True)
+                except Exception:
+                    pass  # 忽略移除失败的情况
 
         # 在开头插入一个标准的钢琴乐器
         part.insert(0, instrument.Piano())

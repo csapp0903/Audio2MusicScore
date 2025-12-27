@@ -102,22 +102,37 @@ def merge_midi_tracks(midi_files: list[Path], output_file: Path) -> Path:
         Path: 合并后的 MIDI 文件路径
     """
     # 延迟导入
-    from midiutil import MIDIFile
+    import shutil
     import mido
 
     if len(midi_files) == 1:
         # 只有一个文件，直接复制
-        import shutil
         shutil.copy(midi_files[0], output_file)
         return output_file
 
     # 使用 mido 合并多个 MIDI 文件
-    merged = mido.MidiFile()
+    # 以第一个文件为基准，获取 ticks_per_beat
+    first_midi = mido.MidiFile(str(midi_files[0]))
+    merged = mido.MidiFile(type=1, ticks_per_beat=first_midi.ticks_per_beat)
 
     for midi_path in midi_files:
         midi = mido.MidiFile(str(midi_path))
+
+        # 如果 ticks_per_beat 不同，需要调整时间
+        time_scale = midi.ticks_per_beat / merged.ticks_per_beat
+
         for track in midi.tracks:
-            merged.tracks.append(track)
+            if time_scale != 1.0:
+                # 调整所有消息的时间以匹配目标 ticks_per_beat
+                new_track = mido.MidiTrack()
+                for msg in track:
+                    new_msg = msg.copy()
+                    if hasattr(new_msg, 'time'):
+                        new_msg.time = int(new_msg.time / time_scale)
+                    new_track.append(new_msg)
+                merged.tracks.append(new_track)
+            else:
+                merged.tracks.append(track.copy())
 
     merged.save(str(output_file))
     logger.info(f"MIDI 文件合并完成: {output_file}")

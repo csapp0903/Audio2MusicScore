@@ -59,11 +59,13 @@ def separate_audio(wav_file: Path, task_id: str) -> dict[str, Path]:
     # --two-stems: 可选，只分离为两个音轨（如 vocals/accompaniment）
     # --mp3: 输出为 mp3 格式（节省空间，但我们需要 wav）
     # 不使用 --mp3，保持 wav 格式以确保质量
+    #
+    # 注意：不使用 --filename 参数，保持默认输出结构：
+    # {output_dir}/{model_name}/{input_filename_without_ext}/{stem}.wav
     cmd = [
         "demucs",
         "-n", DEFAULT_MODEL,
         "-o", str(output_dir),
-        "--filename", "{track}/{stem}.{ext}",
         str(wav_file),
     ]
 
@@ -78,15 +80,23 @@ def separate_audio(wav_file: Path, task_id: str) -> dict[str, Path]:
     model_output_dir = output_dir / DEFAULT_MODEL
 
     # 找到实际的输出子目录（以输入文件名命名）
-    subdirs = list(model_output_dir.iterdir()) if model_output_dir.exists() else []
-    if not subdirs:
+    # 使用更健壮的查找逻辑
+    stem_dir = None
+    if model_output_dir.exists():
+        # 查找包含 wav 文件的子目录
+        for subdir in model_output_dir.iterdir():
+            if subdir.is_dir():
+                wav_files = list(subdir.glob("*.wav"))
+                if wav_files:
+                    stem_dir = subdir
+                    break
+
+    if stem_dir is None:
         raise CommandError(
-            message="Demucs 输出目录为空",
+            message="Demucs 输出目录为空或未找到音轨文件",
             returncode=-1,
             stderr=f"No output found in {model_output_dir}",
         )
-
-    stem_dir = subdirs[0]  # 通常只有一个子目录
 
     # 收集目标音轨
     stems = {}

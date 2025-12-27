@@ -124,21 +124,34 @@ async def upload_audio(
     upload_dir.mkdir(parents=True, exist_ok=True)
     file_path = upload_dir / f"original{file_ext}"
 
-    # 保存上传文件
+    # 保存上传文件（使用流式读取避免大文件 OOM）
+    max_size_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    chunk_size = 1024 * 1024  # 1MB 块
+
     try:
+        total_size = 0
         async with aiofiles.open(file_path, "wb") as f:
-            content = await file.read()
-            # 检查文件大小
-            if len(content) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-                raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail=f"文件大小超过限制 ({settings.MAX_UPLOAD_SIZE_MB}MB)",
-                )
-            await f.write(content)
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                # 边读边检查大小，避免完全读取超大文件
+                if total_size > max_size_bytes:
+                    # 删除已写入的部分文件
+                    await f.close()
+                    file_path.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"文件大小超过限制 ({settings.MAX_UPLOAD_SIZE_MB}MB)",
+                    )
+                await f.write(chunk)
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"保存文件失败: {e}")
+        # 清理可能部分写入的文件
+        file_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="保存文件失败",

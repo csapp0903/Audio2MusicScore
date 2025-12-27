@@ -4,11 +4,18 @@
 使用 Pydantic BaseSettings 管理所有配置项，支持环境变量覆盖。
 """
 
+import os
 import secrets
+import warnings
 from pathlib import Path
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# 生成默认的 JWT 密钥（仅用于开发环境）
+# 生产环境必须通过环境变量 JWT_SECRET_KEY 设置固定密钥
+_DEFAULT_JWT_SECRET = "INSECURE_DEFAULT_KEY_CHANGE_IN_PRODUCTION"
 
 
 class Settings(BaseSettings):
@@ -34,9 +41,23 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
     # ==================== JWT 配置 ====================
-    JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
+    # 重要：生产环境必须通过环境变量设置 JWT_SECRET_KEY
+    # 否则每次应用重启都会使所有已发放的 token 失效
+    JWT_SECRET_KEY: str = _DEFAULT_JWT_SECRET
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 小时
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # 检查是否使用了默认的不安全密钥
+        if self.JWT_SECRET_KEY == _DEFAULT_JWT_SECRET:
+            warnings.warn(
+                "警告: JWT_SECRET_KEY 未设置，使用了不安全的默认密钥。"
+                "生产环境请务必通过环境变量或 .env 文件设置 JWT_SECRET_KEY。"
+                "当前配置下，应用重启后所有 token 仍然有效，但密钥不安全。",
+                UserWarning,
+                stacklevel=2,
+            )
 
     # ==================== 文件上传配置 ====================
     MAX_UPLOAD_SIZE_MB: int = 100
