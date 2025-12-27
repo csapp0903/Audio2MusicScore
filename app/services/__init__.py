@@ -1,11 +1,5 @@
 """
-¡B!W
-
-+ó‘„*¡
-- audio_preprocessor: ó‘„}/lb	
-- demucs_separator: Demucs ó»
-- pitch_detector: Basic Pitch óØÀK
-- score_converter: Music21 + MuseScore P1lb
+Services module initialization.
 """
 
 from app.services.audio_preprocessor import preprocess_audio

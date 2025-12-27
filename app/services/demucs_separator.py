@@ -63,7 +63,7 @@ def separate_audio(wav_file: Path, task_id: str) -> dict[str, Path]:
         "demucs",
         "-n", DEFAULT_MODEL,
         "-o", str(output_dir),
-        "--filename", "{stem}.{ext}",  # 简化输出文件名
+        "--filename", "{track}/{stem}.{ext}",
         str(wav_file),
     ]
 

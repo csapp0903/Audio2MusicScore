@@ -88,9 +88,14 @@ def midi_to_musicxml(midi_file: Path, task_id: str) -> Path:
 
     # 5. 添加乐器信息（如果缺失）
     for part in score.parts:
-        if not part.getElementsByClass(instrument.Instrument):
-            part.insert(0, instrument.Piano())
 
+        # 移除所有复杂的乐器定义
+        flat_part = part.flatten()
+        for el in flat_part.getElementsByClass('Instrument'):
+            part.remove(el, recurse=True)
+
+        # 在开头插入一个标准的钢琴乐器
+        part.insert(0, instrument.Piano())
     # 6. 导出为 MusicXML
     # Music21 支持多种导出格式：musicxml, midi, lily (LilyPond), etc.
     score.write('musicxml', fp=str(output_file))
