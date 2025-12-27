@@ -16,7 +16,9 @@ from app.core.utils import run_command, CommandError
 logger = logging.getLogger(__name__)
 
 # 标准化音频参数（适配 AI 模型）
-TARGET_SAMPLE_RATE = 16000
+# 注意：Basic Pitch 模型设计用于 22050Hz 采样率
+# 使用较低的采样率会导致高频信息丢失，影响音高检测精度
+TARGET_SAMPLE_RATE = 22050  # 22.05kHz，保留更多高频信息
 TARGET_CHANNELS = 1  # mono
 
 

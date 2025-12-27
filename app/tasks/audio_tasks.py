@@ -192,14 +192,20 @@ def process_audio_task(
         # ============================================================
         update_task_progress(self, "完成", 100)
 
+        # 构建下载 URL，注意 MIDI 文件扩展名是 .mid 而不是 .midi
+        download_urls = {}
+        for file_type in final_files.keys():
+            if file_type == "midi":
+                # MIDI 文件实际保存为 score.mid
+                download_urls[file_type] = f"/download/{task_id}/score.mid"
+            else:
+                download_urls[file_type] = f"/download/{task_id}/score.{file_type}"
+
         result = {
             "task_id": task_id,
             "status": "SUCCESS",
             "files": final_files,
-            "download_urls": {
-                file_type: f"/download/{task_id}/score.{file_type}"
-                for file_type in final_files.keys()
-            },
+            "download_urls": download_urls,
         }
 
         logger.info(f"{'='*50}")
